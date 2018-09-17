@@ -1,0 +1,115 @@
+# 参数传入演示   2个参数
+#user_vcenterconfig=?,
+#user_host_list=?显示传入
+#user_vm_network=?
+
+    - set_fact: max_wait_time_in_seconds=300
+      when: max_wait_time_in_seconds is undefined
+
+    - set_fact: vmware_poweroff_vm_deploy_start_timestamp="{{lookup('pipe','date \"+%Y-%m-%d %H:%M:%S\"')}}"
+
+    - name: "create the VM from template and set ip addrss."
+      vmware_guest:
+        hostname: "{{user_vcenterconfig['vcenterhostname']}}"
+        username: "{{user_vcenterconfig['vcenterusername']}}"
+        password: "{{user_vcenterconfig['vcenterpassword']}}"
+        validate_certs: no
+        esxi_hostname: "{{item.host_machine}}"   #允许部署在不同的esxi 机器上.
+        datacenter: "{{user_vcenterconfig['datacenter']}}"
+        resource_pool: "{{user_vcenterconfig['resource_pool']}}"
+        name: "{{item.name.split('.')[0]}}"
+        folder: "{{user_vcenterconfig['folder']}}"  #
+        uuid: "{{item.uuid}}"
+        state: poweredon
+        disk:
+        - size_gb: "{{item.disk}}"
+          type: thin
+          datastore: "{{user_vcenterconfig['default_datastore']}}"
+        hardware:
+          memory_mb: "{{item.memory}}"
+          num_cpus: "{{item.cpu}}"
+          scsi: paravirtual
+        template: "{{user_vcenterconfig['template']}}"
+        wait_for_ip_address: no
+
+        networks:
+        - name: "{{user_vm_network['vlan']}}"
+          ip: "{{ item.ip }}"
+          netmask: "{{user_vm_network['netmask']}}"
+          gateway: "{{user_vm_network['gateway']}}"
+  #        dns_servers:
+  #        - "{{commonsetting['dnsserver1']}}"
+  #        - "{{commonsetting['dnsserver2']}}"
+
+        customization:
+          autologon: True
+  #        dns_servers:
+  #        - "{{commonsetting['dnsserver1']}}"
+  #        - "{{commonsetting['dnsserver2']}}"
+
+      with_items: "{{user_host_list}}"
+      delegate_to: localhost
+      async: 300
+      poll: 0
+      retries: 3
+      ignore_errors: no
+      register: create_vms
+
+#
+#    - name: "等待 {{ item.name }} 启动到,可以ssh进入,最多等待{{max_wait_time_in_seconds}}秒"
+#      local_action: wait_for port=22 host="{{ item.ip }}" search_regex=OpenSSH delay=1 timeout={{max_wait_time_in_seconds}}
+#      ignore_errors: yes
+#      with_items: "{{user_host_list}}"
+#
+#    - name: "测试虚拟机是否已经起来了"
+#      shell: pwd && ls ; date
+#      delegate_to: "{{item.name}}"
+#      with_items: "{{user_host_list}}"
+#      ignore_errors: yes 
+#
+#    - name: "删除了虚拟机,重新创建了虚拟机,hostkey已经发生变化,删除旧的hostKey" #
+#      shell: ssh-keygen -R {{ item.name }} #
+#      ignore_errors: yes 
+#      with_items: "{{user_host_list}}"
+#
+#    - name: "删除了虚拟机,重新创建了虚拟机,hostkey已经发生变化,删除旧的hostKey" #
+#      shell: ssh-keygen -R {{ item.ip }} #
+#      ignore_errors: yes 
+#      with_items: "{{user_host_list}}"
+
+  #  - name: "remove ansible host known hosts"
+  #    shell: rm /home/root/.ssh/knownhosts -f; rm /home/centos/.ssh/knownhosts;
+  #    ignore_errors: yes
+
+  #  - name: add user  {{ appconfig['the_app_username'] }} on vm
+  #    user:
+  #      name: "{{appconfig['the_app_username']}}"
+  #      password: "{{appconfig['app_password']}}"
+  #      state: present
+  #      append: yes
+  #      generate_ssh_key: yes
+  #      ssh_key_bits: 2048
+  #      ssh_key_file: .ssh/id_rsa
+  #    delegate_to: "{{item.name}}"
+  #    with_items: "{{user_host_list}}"
+  #
+  #  - name: add user  root on vm
+  #    user:
+  #      name: "root"
+  #      password: "{{appconfig['root_password']}}"
+  #      state: present
+  #      append: yes
+  #      generate_ssh_key: yes
+  #      ssh_key_bits: 2048
+  #      ssh_key_file: .ssh/id_rsa
+  #
+  #    delegate_to: "{{item.name}}"
+  #    with_items: "{{user_host_list}}"
+
+
+    - set_fact: vmware_poweroff_vm_deploy_stop_timestamp="{{lookup('pipe','date \"+%Y-%m-%d %H:%M:%S\"')}}"
+
+    - name: "vmware_poweroff_vm_deploy 开始时间: {{vmware_poweroff_vm_deploy_start_timestamp}} 结束时间: {{vmware_poweroff_vm_deploy_finished_timestamp}} 共耗时{{( (vmware_poweroff_vm_deploy_finished_timestamp | to_datetime) - (vmware_poweroff_vm_deploy_start_timestamp | to_datetime)).total_seconds()}}秒."
+      debug: msg=" "
+
+
